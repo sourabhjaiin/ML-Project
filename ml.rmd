@@ -1,0 +1,94 @@
+---
+title: "machine learning project"
+author: "sourabh jain"
+date: "04/09/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##  Introduction
+#### Using devices such as Jawbone Up, Nike FuelBand, and Fitbit is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it.
+
+#### In this project, we will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participant They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. The five ways are exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E). Only Class A corresponds to correct performance. The goal of this project is to predict the manner in which they did the exercise, i.e., Class A to E. 
+
+
+## Data Processing
+### 1. Loading data and libraries
+
+```{r}
+library(rattle)
+library(ggplot2)
+library(randomForest)
+library(gbm)
+library(rpart)
+library(rpart.plot)
+library(caret)
+training <- read.csv("trainproject.csv", na.strings = c("NA", ""))
+testing <- read.csv("testproject.csv", na.strings = c("NA", ""))
+
+dim(training)
+dim(testing)
+```
+
+##### Thus the training dataset has 19622 observations and 160 variables, and the testing data set contains 20 observations and the same variables as the training set. We are trying to predict the outcome of the variable classe in the training set.
+
+## Data Cleaning
+##### We will remove columns (predictors) of the training set that contain any missing values.
+
+```{r}
+training <- training[, colSums(is.na(training)) == 0]
+testing <- testing[, colSums(is.na(testing)) == 0]
+```
+##### We also remove the first seven predictors since these variables have little predicting power for the outcome classe
+
+```{r}
+trainData <- training[, -c(1:7)]
+testData <- testing[, -c(1:7)]
+```
+
+##### The cleaned data sets trainData and testData both have 53 columns with the same first 52 variables and the last variable classe.
+
+## Data Spliting
+##### In order to get out-of-sample errors, we split the cleaned training set trainData into a training set (train, 70%) for prediction and a validation set (valid 30%) to compute the out-of-sample errors.
+
+```{r}
+intrain<-createDataPartition(y=trainData$classe,p=0.7,list=F)
+train<-trainData[intrain,]
+valid<-trainData[-intrain,]
+```
+
+## Predicting Best Model
+### TREE
+
+```{r}
+train$classe<-factor(train$classe)
+valid$classe<-factor(valid$classe)
+control<-trainControl(method = "cv", number = 5)
+modtree<-train(classe~.,data=train,method="rpart",trControl=control)
+fancyRpartPlot(modtree$finalModel)
+predtree<-predict(modtree,valid)
+confusionMatrix(valid$classe,predtree)
+```
+
+##### From the confusion matrix, the accuracy rate is 0.5, and so the out-of-sample error rate is 0.5. Using classification tree does not predict the outcome classe very well.
+
+## Random Forest
+```{r}
+modrandom<-train(classe~.,data=train,method="rf",trControl=control)
+predrandom<-predict(modrandom,valid)
+confusionMatrix(valid$classe,predrandom)
+```
+
+##### For this dataset, random forest method is way better than classification tree method. The accuracy rate is 0.991, and so the out-of-sample error rate is 0.009. This may be due to the fact that many predictors are highly correlated. Random forests chooses a subset of predictors at each split and decorrelate the trees.
+
+## Predicting on test set
+##### We use random forect to predict the test set
+```{r}
+testData$problem_id<-factor(testData$problem_id)
+predtest<-predict(modrandom,testData)
+predtest
+```
+
